@@ -1,0 +1,336 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<title>Solitaire</title>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Solitaire">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#12332a">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" type="image/png" href="icon-192.png">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@500;600&family=Libre+Caslon+Text:wght@700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --felt:#1f4c3b; --felt-deep:#12332a; --line:rgba(233,220,180,.24);
+  --card:#fbf8f1; --ink:#1b1c20; --red:#b3261e; --brass:#d8b563; --back:#6b1f2b;
+  --text:#efe8d2; --muted:#a8b9a8;
+  color-scheme:dark;
+}
+[hidden]{display:none!important}
+html{height:100%;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);background:#12332a}
+body{height:100%;margin:0;overflow:hidden;background-color:var(--felt-deep);
+  background-image:radial-gradient(ellipse at 50% 25%,var(--felt) 0%,var(--felt-deep) 100%);
+  color:var(--text);font-family:"Barlow Semi Condensed",system-ui,sans-serif;
+  -webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent;overscroll-behavior:none}
+.app{height:100%;display:flex;flex-direction:column;padding-inline:16px;box-sizing:border-box;max-width:820px;margin:0 auto}
+header{display:flex;align-items:baseline;justify-content:space-between;gap:12px;padding-block:10px 8px}
+.mark{font-family:"Libre Caslon Text",Georgia,serif;font-weight:700;font-size:20px;color:var(--brass)}
+.stats{display:flex;gap:14px;font-size:15px;color:var(--muted);font-variant-numeric:tabular-nums}
+.stats b{color:var(--text);font-weight:600}
+#board{position:relative;flex:1;min-height:0;touch-action:none}
+.slot{position:absolute;left:0;top:0;width:var(--cw);height:var(--ch);box-sizing:border-box;
+  border-radius:calc(var(--cw)*.1);border:1.5px solid var(--line);display:grid;place-items:center;
+  color:var(--line);font-family:"Libre Caslon Text",Georgia,serif;font-size:calc(var(--cw)*.34)}
+.slot[data-k="waste"]{border-style:dashed;opacity:.6}
+.card{position:absolute;left:0;top:0;width:var(--cw);height:var(--ch);transition:transform .18s ease;will-change:transform;cursor:pointer}
+.card.drag{transition:none}
+.face,.back{position:absolute;inset:0;box-sizing:border-box;border-radius:calc(var(--cw)*.1);
+  box-shadow:0 1px 0 rgba(0,0,0,.2),0 2px 4px rgba(0,0,0,.28)}
+.face{background:var(--card);color:var(--ink);overflow:hidden}
+.card.red .face{color:var(--red)}
+.rk{position:absolute;left:7%;top:3%;font-family:"Libre Caslon Text",Georgia,serif;font-weight:700;
+  font-size:calc(var(--cw)*.36);line-height:1;letter-spacing:-.05em}
+.st{position:absolute;right:8%;top:5%;font-size:calc(var(--cw)*.3);line-height:1}
+.big{position:absolute;left:0;right:0;bottom:9%;text-align:center;font-size:calc(var(--cw)*.6);line-height:1}
+.big.court{font-family:"Libre Caslon Text",Georgia,serif;font-weight:700;font-size:calc(var(--cw)*.5);bottom:12%}
+.back{background:
+  repeating-linear-gradient(45deg,rgba(216,181,99,.38) 0 1px,transparent 1px 5px),
+  repeating-linear-gradient(-45deg,rgba(216,181,99,.38) 0 1px,transparent 1px 5px),var(--back);
+  border:calc(var(--cw)*.055) solid var(--card)}
+.card:not(.up) .face{display:none}
+.card.up .back{display:none}
+.card:not(.up){cursor:default}
+.nope .face{animation:nope .28s}
+@keyframes nope{25%{transform:translateX(-4px)}75%{transform:translateX(4px)}}
+footer{display:flex;gap:8px;align-items:center;padding-block:8px 12px}
+button{font:inherit;font-weight:600;font-size:16px;color:var(--text);background:rgba(0,0,0,.22);
+  border:1px solid var(--line);border-radius:10px;padding:10px 14px;touch-action:manipulation;cursor:pointer}
+button:focus-visible{outline:2px solid var(--brass);outline-offset:2px}
+button:disabled{opacity:.35;cursor:default}
+#finish{background:var(--brass);color:#1d1a10;border-color:transparent}
+.seg{display:flex;align-items:center;margin-left:auto;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.seg span{padding-inline:10px 4px;color:var(--muted);font-size:14px;text-transform:uppercase;letter-spacing:.06em}
+.seg button{border:0;border-radius:0;background:transparent;padding:10px 13px}
+.seg button[aria-pressed="true"]{background:var(--brass);color:#1d1a10}
+.win{position:absolute;inset:0;z-index:3000;display:grid;place-items:center;background:rgba(10,30,22,.55)}
+.win-card{background:var(--card);color:var(--ink);border-radius:14px;padding:22px 26px;text-align:center;
+  box-shadow:0 10px 30px rgba(0,0,0,.4);display:flex;flex-direction:column;gap:8px;min-width:200px}
+.win-title{font-family:"Libre Caslon Text",Georgia,serif;font-weight:700;font-size:30px;color:var(--red)}
+.win-card p{margin:0;font-size:16px;font-variant-numeric:tabular-nums;color:#4a4b50}
+.win-card button{margin-top:8px;background:var(--felt);border-color:transparent}
+@media (prefers-reduced-motion:reduce){.card{transition:none}.nope .face{animation:none}}
+</style>
+
+</head>
+<body>
+<div class="app">
+  <header>
+    <div class="mark">Klondike</div>
+    <div class="stats"><span>Moves <b id="moves">0</b></span><span><b id="time">0:00</b></span></div>
+  </header>
+  <div id="board">
+    <div class="win" id="win" hidden>
+      <div class="win-card">
+        <div class="win-title">Solved</div>
+        <p id="winStats"></p>
+        <button id="again" type="button">Deal again</button>
+      </div>
+    </div>
+  </div>
+  <footer>
+    <button id="new" type="button">New</button>
+    <button id="undo" type="button">Undo</button>
+    <button id="finish" type="button" hidden>Finish</button>
+    <div class="seg" role="group" aria-label="Cards per draw">
+      <span>Draw</span>
+      <button id="d1" type="button" aria-pressed="true">1</button>
+      <button id="d3" type="button" aria-pressed="false">3</button>
+    </div>
+  </footer>
+</div>
+
+<script>
+(() => {
+const SUITS = ['♠','♥','♦','♣'].map(s => s + '︎');
+const RANK = ['','A','2','3','4','5','6','7','8','9','10','J','Q','K'];
+const isRed = s => s === 1 || s === 2;
+const $ = id => document.getElementById(id);
+const board = $('board');
+const KEY = 'klondike.v1', WKEY = 'klondike.wins';
+
+let S = null, hist = [], boost = new Set(), dealDelay = null, drag = null;
+let W = 0, H = 0, cw = 60, ch = 84, gap = 6, left0 = 0, tabTop = 0;
+const els = {}, pos = {}, slots = {};
+
+/* ---------- storage (best effort) ---------- */
+function save(){ try{ localStorage.setItem(KEY, JSON.stringify(S)); }catch(e){} }
+function load(){ try{ const v = JSON.parse(localStorage.getItem(KEY)); if(v && v.t && v.f) return v; }catch(e){} return null; }
+function wins(add){ let n = 0; try{ n = +localStorage.getItem(WKEY) || 0; if(add){ n++; localStorage.setItem(WKEY, n); } }catch(e){} return n; }
+
+/* ---------- DOM ---------- */
+function mkSlot(k, label){ const d = document.createElement('div'); d.className = 'slot'; d.dataset.k = k; d.textContent = label || ''; board.appendChild(d); slots[k] = d; }
+mkSlot('stock'); mkSlot('waste');
+for(let i=0;i<4;i++) mkSlot('f'+i, 'A');
+for(let i=0;i<7;i++) mkSlot('t'+i, 'K');
+for(let s=0;s<4;s++) for(let r=1;r<=13;r++){
+  const id = s*13 + r - 1, court = r > 10;
+  const el = document.createElement('div');
+  el.className = 'card' + (isRed(s) ? ' red' : '');
+  el.dataset.id = id;
+  el.innerHTML = `<div class="face"><span class="rk">${RANK[r]}</span><span class="st">${SUITS[s]}</span><span class="big${court?' court':''}">${court?RANK[r]:SUITS[s]}</span></div><div class="back"></div>`;
+  board.appendChild(el); els[id] = el;
+}
+
+/* ---------- game model ---------- */
+function newGame(){
+  const deck = [];
+  for(let s=0;s<4;s++) for(let r=1;r<=13;r++) deck.push({id:s*13+r-1, s, r, up:false});
+  for(let i=deck.length-1;i>0;i--){ const j = Math.floor(Math.random()*(i+1)); [deck[i],deck[j]] = [deck[j],deck[i]]; }
+  const t = []; dealDelay = {}; let n = 0;
+  for(let i=0;i<7;i++) t.push([]);
+  for(let row=0;row<7;row++) for(let i=row;i<7;i++){ const c = deck.pop(); c.up = row === i; t[i].push(c); dealDelay[c.id] = (n++) * 22; }
+  S = {stock:deck, waste:[], f:[[],[],[],[]], t, draw:S ? S.draw : 1, moves:0, time:0, started:false, won:false};
+  hist = []; $('win').hidden = true;
+  // gather everything onto the stock, then deal out
+  for(const id in els){ const el = els[id]; el.classList.add('drag'); el.classList.remove('up'); el.style.transform = `translate(${colX(6)}px,0px)`; }
+  board.offsetWidth;
+  for(const id in els) els[id].classList.remove('drag');
+  save(); render(); dealDelay = null;
+}
+const pile = loc => loc.type === 'w' ? S.waste : loc.type === 'f' ? S.f[loc.i] : loc.type === 't' ? S.t[loc.i] : S.stock;
+function find(id){
+  if(S.stock.some(c=>c.id===id)) return {type:'s'};
+  if(S.waste.some(c=>c.id===id)) return {type:'w'};
+  for(let i=0;i<4;i++) if(S.f[i].some(c=>c.id===id)) return {type:'f', i};
+  for(let i=0;i<7;i++) if(S.t[i].some(c=>c.id===id)) return {type:'t', i};
+}
+function canF(c, i){ const p = S.f[i], top = p[p.length-1]; return top ? top.s === c.s && c.r === top.r + 1 : c.r === 1; }
+function canT(c, i){ const p = S.t[i], top = p[p.length-1]; return top ? top.up && isRed(top.s) !== isRed(c.s) && c.r === top.r - 1 : c.r === 13; }
+function snap(){ hist.push(JSON.stringify({stock:S.stock, waste:S.waste, f:S.f, t:S.t, moves:S.moves})); if(hist.length > 400) hist.shift(); }
+function undo(){ if(!hist.length || S.won) return; Object.assign(S, JSON.parse(hist.pop())); save(); render(); }
+
+function drawStock(){
+  if(S.stock.length){
+    snap(); const n = Math.min(S.draw, S.stock.length);
+    for(let k=0;k<n;k++){ const c = S.stock.pop(); c.up = true; S.waste.push(c); }
+  } else if(S.waste.length){
+    snap(); S.stock = S.waste.reverse().map(c => (c.up = false, c)); S.waste = [];
+  } else return;
+  S.moves++; S.started = true; save(); render();
+}
+function doMove(from, idx, to){
+  snap();
+  const moving = pile(from).splice(idx);
+  pile(to).push(...moving);
+  if(from.type === 't'){ const p = S.t[from.i]; if(p.length) p[p.length-1].up = true; }
+  S.moves++; S.started = true;
+  boost = new Set(moving.map(c => c.id));
+  save(); render();
+  setTimeout(() => { boost.clear(); if(!drag) render(); }, 230);
+  checkWin();
+}
+function tryAuto(loc, idx){
+  const src = pile(loc), c = src[idx], n = src.length - idx;
+  if(n === 1 && loc.type !== 'f'){ for(let i=0;i<4;i++) if(canF(c,i)){ doMove(loc, idx, {type:'f', i}); return; } }
+  const start = loc.type === 't' ? loc.i + 1 : 0, empties = [];
+  for(let k=0;k<7;k++){
+    const i = (start + k) % 7;
+    if(loc.type === 't' && i === loc.i) continue;
+    if(!canT(c, i)) continue;
+    if(S.t[i].length){ doMove(loc, idx, {type:'t', i}); return; }
+    empties.push(i);
+  }
+  if(empties.length && !(loc.type === 't' && idx === 0)){ doMove(loc, idx, {type:'t', i:empties[0]}); return; }
+  const el = els[c.id]; el.classList.remove('nope'); el.offsetWidth; el.classList.add('nope');
+}
+function canFinish(){ return !S.won && !S.stock.length && !S.waste.length && S.t.every(p => p.every(c => c.up)) && S.t.some(p => p.length); }
+function autoFinish(){
+  $('finish').hidden = true;
+  const step = () => {
+    let best = null;
+    S.t.forEach((p, i) => { const c = p[p.length-1]; if(!c) return; for(let f=0;f<4;f++) if(canF(c,f) && (!best || c.r < best.r)) best = {r:c.r, i, f, idx:p.length-1}; });
+    if(!best) return;
+    doMove({type:'t', i:best.i}, best.idx, {type:'f', i:best.f});
+    if(!S.won) setTimeout(step, 70);
+  };
+  step();
+}
+function checkWin(){
+  if(S.f.every(p => p.length === 13) && !S.won){
+    S.won = true; const n = wins(true); save();
+    $('winStats').textContent = `${S.moves} moves · ${fmt(S.time)} · ${n} ${n === 1 ? 'win' : 'wins'} total`;
+    setTimeout(() => { $('win').hidden = false; }, 350);
+  }
+}
+
+/* ---------- layout & render ---------- */
+const colX = i => left0 + i * (cw + gap);
+function layout(){
+  const r = board.getBoundingClientRect(); W = r.width; H = r.height;
+  gap = Math.max(4, Math.round(W * 0.016));
+  cw = Math.max(30, Math.min(Math.floor((W - 6*gap) / 7), 104, Math.floor(H / 4.3 / 1.4)));
+  ch = Math.round(cw * 1.4);
+  left0 = Math.round((W - (7*cw + 6*gap)) / 2);
+  tabTop = Math.round(ch + gap * 2.4);
+  board.style.setProperty('--cw', cw + 'px'); board.style.setProperty('--ch', ch + 'px');
+  const at = (el, x, y) => el.style.transform = `translate(${x}px,${y}px)`;
+  at(slots.stock, colX(6), 0); at(slots.waste, colX(5), 0);
+  for(let i=0;i<4;i++) at(slots['f'+i], colX(i), 0);
+  for(let i=0;i<7;i++) at(slots['t'+i], colX(i), tabTop);
+  if(S) render();
+}
+function place(c, x, y, z){
+  const el = els[c.id]; pos[c.id] = {x, y};
+  el.classList.toggle('up', c.up);
+  el.style.transitionDelay = dealDelay && dealDelay[c.id] != null ? dealDelay[c.id] + 'ms' : '0ms';
+  el.style.transform = `translate(${x}px,${y}px)`;
+  el.style.zIndex = z + (boost.has(c.id) ? 500 : 0);
+}
+function render(){
+  S.stock.forEach((c, k) => place(c, colX(6), 0, 10 + k));
+  const wn = S.waste.length, skip = Math.max(0, wn - 3), nVis = Math.min(3, wn);
+  S.waste.forEach((c, k) => place(c, colX(5) - (S.draw === 3 ? (nVis - 1 - Math.max(0, k - skip)) * cw * 0.3 : 0), 0, 10 + k));
+  S.f.forEach((p, i) => p.forEach((c, k) => place(c, colX(i), 0, 10 + k)));
+  const avail = H - tabTop - ch - 2;
+  S.t.forEach((p, i) => {
+    const nd = p.filter(c => !c.up).length, nu = p.length - nd;
+    let dOff = ch * 0.13, uOff = ch * 0.28;
+    if(nu > 1 && nd*dOff + (nu-1)*uOff > avail) uOff = Math.max(ch * 0.12, (avail - nd*dOff) / (nu-1));
+    if(nd && nd*dOff + Math.max(0, nu-1)*uOff > avail) dOff = Math.max(ch * 0.05, (avail - Math.max(0, nu-1)*uOff) / nd);
+    let y = tabTop;
+    p.forEach((c, k) => { place(c, colX(i), y, 10 + k); y += c.up ? uOff : dOff; });
+  });
+  slots.stock.textContent = !S.stock.length && S.waste.length ? '↻' : '';
+  $('moves').textContent = S.moves; $('time').textContent = fmt(S.time);
+  $('undo').disabled = !hist.length || S.won;
+  $('finish').hidden = !canFinish();
+  $('d1').setAttribute('aria-pressed', S.draw === 1); $('d3').setAttribute('aria-pressed', S.draw === 3);
+}
+const fmt = s => Math.floor(s/60) + ':' + String(s%60).padStart(2, '0');
+
+/* ---------- input: tap to auto-move, or drag ---------- */
+board.addEventListener('pointerdown', e => {
+  if(!S || S.won || drag) return;
+  const el = e.target.closest('.card');
+  if(!el){ const sl = e.target.closest('.slot'); if(sl && sl.dataset.k === 'stock') drawStock(); return; }
+  const id = +el.dataset.id, loc = find(id);
+  if(loc.type === 's'){ drawStock(); return; }
+  const src = pile(loc), idx = src.findIndex(c => c.id === id);
+  if(!src[idx].up) return;
+  if(loc.type !== 't' && idx !== src.length - 1) return;
+  drag = {loc, idx, ids:src.slice(idx).map(c => c.id), x0:e.clientX, y0:e.clientY, dx:0, dy:0, moved:false};
+  try{ board.setPointerCapture(e.pointerId); }catch(err){}
+});
+board.addEventListener('pointermove', e => {
+  if(!drag) return;
+  drag.dx = e.clientX - drag.x0; drag.dy = e.clientY - drag.y0;
+  if(!drag.moved && Math.hypot(drag.dx, drag.dy) < 7) return;
+  if(!drag.moved){ drag.moved = true; drag.ids.forEach((id, k) => { els[id].classList.add('drag'); els[id].style.zIndex = 2000 + k; }); }
+  drag.ids.forEach(id => { const p = pos[id]; els[id].style.transform = `translate(${p.x + drag.dx}px,${p.y + drag.dy}px)`; });
+});
+function endDrag(ok){
+  const d = drag; drag = null; if(!d) return;
+  d.ids.forEach(id => els[id].classList.remove('drag'));
+  if(!ok){ render(); return; }
+  if(!d.moved){ tryAuto(d.loc, d.idx); return; }
+  const p = pos[d.ids[0]], cx = p.x + d.dx + cw/2, cy = p.y + d.dy + ch/2;
+  const col = Math.floor((cx - left0 + gap/2) / (cw + gap));
+  let target = null;
+  if(col >= 0 && col < 7){ if(cy < tabTop - gap/2){ if(col <= 3) target = {type:'f', i:col}; } else target = {type:'t', i:col}; }
+  const c = pile(d.loc)[d.idx];
+  if(target && !(target.type === d.loc.type && target.i === d.loc.i)){
+    const good = target.type === 'f' ? d.ids.length === 1 && canF(c, target.i) : canT(c, target.i);
+    if(good){ doMove(d.loc, d.idx, target); return; }
+  }
+  render();
+}
+board.addEventListener('pointerup', () => endDrag(true));
+board.addEventListener('pointercancel', () => endDrag(false));
+
+/* ---------- controls ---------- */
+let armed = false, armT;
+$('new').onclick = () => {
+  const b = $('new');
+  if(!S.started || S.won || armed){ armed = false; b.textContent = 'New'; newGame(); return; }
+  armed = true; b.textContent = 'Deal new?'; clearTimeout(armT);
+  armT = setTimeout(() => { armed = false; b.textContent = 'New'; }, 2500);
+};
+$('again').onclick = newGame;
+$('undo').onclick = undo;
+$('finish').onclick = autoFinish;
+$('d1').onclick = () => { S.draw = 1; save(); render(); };
+$('d3').onclick = () => { S.draw = 3; save(); render(); };
+
+setInterval(() => {
+  if(S && S.started && !S.won && !document.hidden){ S.time++; $('time').textContent = fmt(S.time); if(S.time % 5 === 0) save(); }
+}, 1000);
+
+function start(data){
+  layout();
+  const saved = (data && data.S) || load();
+  if(saved && !saved.won){ S = saved; render(); } else newGame();
+  new ResizeObserver(layout).observe(board);
+}
+start({});
+if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(()=>{});
+})();
+</script>
+
+</body>
+</html>
