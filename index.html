@@ -44,11 +44,12 @@ header{display:flex;align-items:baseline;justify-content:space-between;gap:12px;
   box-shadow:0 1px 0 rgba(0,0,0,.2),0 2px 4px rgba(0,0,0,.28)}
 .face{background:var(--card);color:var(--ink);overflow:hidden}
 .card.red .face{color:var(--red)}
-.rk{position:absolute;left:7%;top:3%;font-family:"Libre Caslon Text",Georgia,serif;font-weight:700;
-  font-size:calc(var(--cw)*.44);line-height:1;letter-spacing:-.06em}
-.st{position:absolute;right:6%;top:4%;font-size:calc(var(--cw)*.36);line-height:1}
-.big{position:absolute;left:0;right:0;bottom:8%;text-align:center;font-size:calc(var(--cw)*.56);line-height:1}
-.big.court{font-family:"Libre Caslon Text",Georgia,serif;font-weight:700;font-size:calc(var(--cw)*.5);bottom:12%}
+.rk{position:absolute;left:5%;top:1%;font-family:"Libre Caslon Text",Georgia,serif;font-weight:700;
+  font-size:calc(var(--cw)*.56);line-height:1;letter-spacing:-.06em}
+.rk.ten{letter-spacing:-.1em;transform:scaleX(.82);transform-origin:left}
+.st{position:absolute;right:4%;top:3%;font-size:calc(var(--cw)*.46);line-height:1}
+.big{position:absolute;left:0;right:0;bottom:7%;text-align:center;font-size:calc(var(--cw)*.6);line-height:1}
+.big.court{font-family:"Libre Caslon Text",Georgia,serif;font-weight:700;font-size:calc(var(--cw)*.52);bottom:10%}
 .back{background:
   repeating-linear-gradient(45deg,rgba(216,181,99,.38) 0 1px,transparent 1px 5px),
   repeating-linear-gradient(-45deg,rgba(216,181,99,.38) 0 1px,transparent 1px 5px),var(--back);
@@ -147,7 +148,7 @@ for(let s=0;s<4;s++) for(let r=1;r<=13;r++){
   const el = document.createElement('div');
   el.className = 'card' + (isRed(s) ? ' red' : '');
   el.dataset.id = id;
-  el.innerHTML = `<div class="face"><span class="rk">${RANK[r]}</span><span class="st">${SUITS[s]}</span><span class="big${court?' court':''}">${court?RANK[r]:SUITS[s]}</span></div><div class="back"></div>`;
+  el.innerHTML = `<div class="face"><span class="rk${r===10?' ten':''}">${RANK[r]}</span><span class="st">${SUITS[s]}</span><span class="big${court?' court':''}">${court?RANK[r]:SUITS[s]}</span></div><div class="back"></div>`;
   board.appendChild(el); els[id] = el;
 }
 
@@ -262,12 +263,12 @@ function place(c, x, y, z){
 function render(){
   S.stock.forEach((c, k) => place(c, colX(6), 0, 10 + k));
   const wn = S.waste.length, skip = Math.max(0, wn - 3), nVis = Math.min(3, wn);
-  S.waste.forEach((c, k) => place(c, colX(5) - (S.draw === 3 ? (nVis - 1 - Math.max(0, k - skip)) * cw * 0.3 : 0), 0, 10 + k));
+  S.waste.forEach((c, k) => place(c, colX(5) - (S.draw === 3 ? (nVis - 1 - Math.max(0, k - skip)) * cw * 0.5 : 0), 0, 10 + k));
   S.f.forEach((p, i) => p.forEach((c, k) => place(c, colX(i), 0, 10 + k)));
   const avail = H - tabTop - ch - 2;
   S.t.forEach((p, i) => {
     const nd = p.filter(c => !c.up).length, nu = p.length - nd;
-    let dOff = ch * 0.13, uOff = ch * 0.32;
+    let dOff = ch * 0.13, uOff = ch * 0.39;
     if(nu > 1 && nd*dOff + (nu-1)*uOff > avail) uOff = Math.max(ch * 0.12, (avail - nd*dOff) / (nu-1));
     if(nd && nd*dOff + Math.max(0, nu-1)*uOff > avail) dOff = Math.max(ch * 0.05, (avail - Math.max(0, nu-1)*uOff) / nd);
     let y = tabTop;
