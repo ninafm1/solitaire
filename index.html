@@ -38,16 +38,16 @@ header{display:flex;align-items:baseline;justify-content:space-between;gap:12px;
   border-radius:calc(var(--cw)*.1);border:1.5px solid var(--line);display:grid;place-items:center;
   color:var(--line);font-family:"Libre Caslon Text",Georgia,serif;font-size:calc(var(--cw)*.34)}
 .slot[data-k="waste"]{border-style:dashed;opacity:.6}
-.card{position:absolute;left:0;top:0;width:var(--cw);height:var(--ch);transition:transform .18s ease;will-change:transform;cursor:pointer}
+.card{position:absolute;left:0;top:0;width:var(--cw);height:var(--ch);transition:transform .34s cubic-bezier(.2,.85,.3,1.04);will-change:transform;cursor:pointer}
 .card.drag{transition:none}
 .face,.back{position:absolute;inset:0;box-sizing:border-box;border-radius:calc(var(--cw)*.1);
   box-shadow:0 1px 0 rgba(0,0,0,.2),0 2px 4px rgba(0,0,0,.28)}
 .face{background:var(--card);color:var(--ink);overflow:hidden}
 .card.red .face{color:var(--red)}
 .rk{position:absolute;left:7%;top:3%;font-family:"Libre Caslon Text",Georgia,serif;font-weight:700;
-  font-size:calc(var(--cw)*.36);line-height:1;letter-spacing:-.05em}
-.st{position:absolute;right:8%;top:5%;font-size:calc(var(--cw)*.3);line-height:1}
-.big{position:absolute;left:0;right:0;bottom:9%;text-align:center;font-size:calc(var(--cw)*.6);line-height:1}
+  font-size:calc(var(--cw)*.44);line-height:1;letter-spacing:-.06em}
+.st{position:absolute;right:6%;top:4%;font-size:calc(var(--cw)*.36);line-height:1}
+.big{position:absolute;left:0;right:0;bottom:8%;text-align:center;font-size:calc(var(--cw)*.56);line-height:1}
 .big.court{font-family:"Libre Caslon Text",Georgia,serif;font-weight:700;font-size:calc(var(--cw)*.5);bottom:12%}
 .back{background:
   repeating-linear-gradient(45deg,rgba(216,181,99,.38) 0 1px,transparent 1px 5px),
@@ -73,7 +73,10 @@ button:disabled{opacity:.35;cursor:default}
   box-shadow:0 10px 30px rgba(0,0,0,.4);display:flex;flex-direction:column;gap:8px;min-width:200px}
 .win-title{font-family:"Libre Caslon Text",Georgia,serif;font-weight:700;font-size:30px;color:var(--red)}
 .win-card p{margin:0;font-size:16px;font-variant-numeric:tabular-nums;color:#4a4b50}
+.win-best{font-weight:600}
+.win-best.new{color:var(--red)}
 .win-card button{margin-top:8px;background:var(--felt);border-color:transparent}
+@media (max-width:380px){.stats{gap:10px}}
 @media (prefers-reduced-motion:reduce){.card{transition:none}.nope .face{animation:none}}
 </style>
 
@@ -82,13 +85,14 @@ button:disabled{opacity:.35;cursor:default}
 <div class="app">
   <header>
     <div class="mark">Klondike</div>
-    <div class="stats"><span>Moves <b id="moves">0</b></span><span><b id="time">0:00</b></span></div>
+    <div class="stats"><span>Moves <b id="moves">0</b></span><span><b id="time">0:00</b></span><span>Best <b id="best">–</b></span></div>
   </header>
   <div id="board">
     <div class="win" id="win" hidden>
       <div class="win-card">
         <div class="win-title">Solved</div>
         <p id="winStats"></p>
+        <p class="win-best" id="winBest"></p>
         <button id="again" type="button">Deal again</button>
       </div>
     </div>
@@ -112,7 +116,7 @@ const RANK = ['','A','2','3','4','5','6','7','8','9','10','J','Q','K'];
 const isRed = s => s === 1 || s === 2;
 const $ = id => document.getElementById(id);
 const board = $('board');
-const KEY = 'klondike.v1', WKEY = 'klondike.wins';
+const KEY = 'klondike.v1', WKEY = 'klondike.wins', BKEY = 'klondike.best';
 
 let S = null, hist = [], boost = new Set(), dealDelay = null, drag = null;
 let W = 0, H = 0, cw = 60, ch = 84, gap = 6, left0 = 0, tabTop = 0;
@@ -121,6 +125,16 @@ const els = {}, pos = {}, slots = {};
 /* ---------- storage (best effort) ---------- */
 function save(){ try{ localStorage.setItem(KEY, JSON.stringify(S)); }catch(e){} }
 function load(){ try{ const v = JSON.parse(localStorage.getItem(KEY)); if(v && v.t && v.f) return v; }catch(e){} return null; }
+// personal bests are kept separately for draw-1 and draw-3
+function bests(){ try{ return JSON.parse(localStorage.getItem(BKEY)) || {}; }catch(e){ return {}; } }
+function recordBest(){
+  const all = bests(), b = all['d'+S.draw] || {};
+  const newTime = b.time == null || S.time < b.time, newMoves = b.moves == null || S.moves < b.moves;
+  if(newTime) b.time = S.time; if(newMoves) b.moves = S.moves;
+  all['d'+S.draw] = b;
+  try{ localStorage.setItem(BKEY, JSON.stringify(all)); }catch(e){}
+  return {b, isNew: newTime || newMoves};
+}
 function wins(add){ let n = 0; try{ n = +localStorage.getItem(WKEY) || 0; if(add){ n++; localStorage.setItem(WKEY, n); } }catch(e){} return n; }
 
 /* ---------- DOM ---------- */
@@ -182,7 +196,7 @@ function doMove(from, idx, to){
   S.moves++; S.started = true;
   boost = new Set(moving.map(c => c.id));
   save(); render();
-  setTimeout(() => { boost.clear(); if(!drag) render(); }, 230);
+  setTimeout(() => { boost.clear(); if(!drag) render(); }, 380);
   checkWin();
 }
 function tryAuto(loc, idx){
@@ -207,15 +221,18 @@ function autoFinish(){
     S.t.forEach((p, i) => { const c = p[p.length-1]; if(!c) return; for(let f=0;f<4;f++) if(canF(c,f) && (!best || c.r < best.r)) best = {r:c.r, i, f, idx:p.length-1}; });
     if(!best) return;
     doMove({type:'t', i:best.i}, best.idx, {type:'f', i:best.f});
-    if(!S.won) setTimeout(step, 70);
+    if(!S.won) setTimeout(step, 90);
   };
   step();
 }
 function checkWin(){
   if(S.f.every(p => p.length === 13) && !S.won){
-    S.won = true; const n = wins(true); save();
+    S.won = true; const n = wins(true), {b, isNew} = recordBest(); save();
     $('winStats').textContent = `${S.moves} moves · ${fmt(S.time)} · ${n} ${n === 1 ? 'win' : 'wins'} total`;
-    setTimeout(() => { $('win').hidden = false; }, 350);
+    $('winBest').textContent = (isNew ? 'New personal best! ' : '') + `Best (draw ${S.draw}): ${fmt(b.time)} · ${b.moves} moves`;
+    $('winBest').classList.toggle('new', isNew);
+    render();
+    setTimeout(() => { $('win').hidden = false; }, 450);
   }
 }
 
@@ -250,7 +267,7 @@ function render(){
   const avail = H - tabTop - ch - 2;
   S.t.forEach((p, i) => {
     const nd = p.filter(c => !c.up).length, nu = p.length - nd;
-    let dOff = ch * 0.13, uOff = ch * 0.28;
+    let dOff = ch * 0.13, uOff = ch * 0.32;
     if(nu > 1 && nd*dOff + (nu-1)*uOff > avail) uOff = Math.max(ch * 0.12, (avail - nd*dOff) / (nu-1));
     if(nd && nd*dOff + Math.max(0, nu-1)*uOff > avail) dOff = Math.max(ch * 0.05, (avail - Math.max(0, nu-1)*uOff) / nd);
     let y = tabTop;
@@ -258,6 +275,7 @@ function render(){
   });
   slots.stock.textContent = !S.stock.length && S.waste.length ? '↻' : '';
   $('moves').textContent = S.moves; $('time').textContent = fmt(S.time);
+  const b = bests()['d'+S.draw]; $('best').textContent = b ? fmt(b.time) : '–';
   $('undo').disabled = !hist.length || S.won;
   $('finish').hidden = !canFinish();
   $('d1').setAttribute('aria-pressed', S.draw === 1); $('d3').setAttribute('aria-pressed', S.draw === 3);
